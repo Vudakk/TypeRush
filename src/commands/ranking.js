@@ -25,6 +25,7 @@ module.exports = {
                 )),
     async execute(interaction) {
         const mode = interaction.options.getString('modo') || 'global';
+        const sortCriteria = interaction.options.getString('ordenar') || 'wins';
         const statsPath = path.join(__dirname, '../data/stats.json');
 
         let statsData;
@@ -50,11 +51,15 @@ module.exports = {
             return interaction.reply({ content: `Ninguém jogou o modo **${titleSuffix}** ainda. Seja o primeiro!`, ephemeral: true });
         }
 
-        // Ordenar por Vitórias, depois Pontos
+        // Ordenar
         const sorted = Object.entries(targetStats)
             .sort(([, a], [, b]) => {
-                if (b.wins !== a.wins) return b.wins - a.wins;
-                return b.points - a.points;
+                if (sortCriteria === 'wpm') {
+                    return (b.maxWPM || 0) - (a.maxWPM || 0);
+                } else {
+                    if (b.wins !== a.wins) return b.wins - a.wins;
+                    return b.points - a.points;
+                }
             })
             .slice(0, 10); // Top 10
 
@@ -63,11 +68,18 @@ module.exports = {
 
         sorted.forEach(([userId, stats], index) => {
             const medal = medals[index] || `**${index + 1}.**`;
-            description += `${medal} <@${userId}>\n   🏆 ${stats.wins} vitórias | 🎯 ${stats.points} pts | 🎮 ${stats.games} jogos\n\n`;
+            const wpmDisplay = stats.maxWPM ? `⚡ ${stats.maxWPM} WPM` : '⚡ -';
+
+            if (sortCriteria === 'wpm') {
+                description += `${medal} <@${userId}>\n   ${wpmDisplay} | 🏆 ${stats.wins} wins\n\n`;
+            } else {
+                description += `${medal} <@${userId}>\n   🏆 ${stats.wins} vitórias | 🎯 ${stats.points} pts | ${wpmDisplay}\n\n`;
+            }
         });
 
+        const sortTitle = sortCriteria === 'wpm' ? 'Velocidade Máxima' : 'Maiores Vencedores';
         const embed = new EmbedBuilder()
-            .setTitle(`🏆 Ranking TypeRush - ${titleSuffix}`)
+            .setTitle(`🏆 Ranking TypeRush - ${titleSuffix} (${sortTitle})`)
             .setDescription(description)
             .setColor('#FFD700')
             .setTimestamp();

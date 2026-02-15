@@ -1,5 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const wordsData = require('../data/words.json');
+const fs = require('fs');
+const path = require('path');
 
 // Map para armazenar jogos ativos
 const activeGames = new Map();
@@ -152,6 +154,7 @@ module.exports = {
                 await i.update({ content: '🚀 **A corrida vai começar!**', components: [] });
                 collector.stop('started');
                 game.status = 'ingame';
+                // Inicializa scores como OBJETO
                 game.players.forEach(pid => game.scores[pid] = { points: 0, maxWPM: 0 });
                 startRound(gameId);
             }
@@ -256,9 +259,8 @@ async function startRound(channelId) {
             if (m.content === expectedAnswer) {
                 roundWon = true;
                 const timeTaken = (Date.now() - roundStartTime) / 1000;
-                
+
                 // Calcular WPM (Palavras por Minuto)
-                // Padrão internacional: 5 caracteres = 1 palavra
                 const chars = expectedAnswer.length;
                 const minutes = timeTaken / 60;
                 const wpm = minutes > 0 ? Math.round((chars / 5) / minutes) : 0;
@@ -288,9 +290,6 @@ async function startRound(channelId) {
     }, 2000);
 }
 
-const fs = require('fs');
-const path = require('path');
-
 async function finishGame(channelId) {
     const game = activeGames.get(channelId);
     if (!game) return;
@@ -308,29 +307,47 @@ async function finishGame(channelId) {
     // Inicializar modos se não existirem
     if (!stats.modes[game.mode]) stats.modes[game.mode] = {};
 
-    // Ordenar scores para determinar vencedor
+    // Ordenar scores para determinar vencedor (pelo total de pontos)
     const sortedScores = Object.entries(game.scores)
-        .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+        .sort(([, statsA], [, statsB]) => statsB.points - statsA.points);
 
     let rankText = '';
     const medals = ['🥇', '🥈', '🥉'];
 
     // Processar resultados
-    sortedScores.forEach(([userId, score], index) => {
+    sortedScores.forEach(([userId, playerStats], index) => {
         const medal = medals[index] || `#${index + 1}`;
-        rankText += `${medal} <@${userId}>: **${score}** pts\n`;
+        // Garantir que temos acesso seguro às propriedades
+        const points = playerStats?.points || 0;
+        const maxWPM = playerStats?.maxWPM || 0;
+
+        rankText += `${medal} <@${userId}>: **${points}** pts (Melhor: ${maxWPM} WPM)\n`;
 
         // Atualizar Stats Globais
-        if (!stats.global[userId]) stats.global[userId] = { wins: 0, games: 0, points: 0 };
+        if (!stats.global[userId]) stats.global[userId] = { wins: 0, games: 0, points: 0, maxWPM: 0 };
+
         stats.global[userId].games++;
-        stats.global[userId].points += score;
-        if (index === 0 && score > 0) stats.global[userId].wins++; // Só conta vitória se tiver pontos > 0 e for primeiro
+        stats.global[userId].points += points;
+
+        const currentGlobalMax = stats.global[userId].maxWPM || 0;
+        if (maxWPM > currentGlobalMax) {
+            stats.global[userId].maxWPM = maxWPM;
+        }
+
+        if (index === 0 && points > 0) stats.global[userId].wins++;
 
         // Atualizar Stats do Modo
-        if (!stats.modes[game.mode][userId]) stats.modes[game.mode][userId] = { wins: 0, games: 0, points: 0 };
+        if (!stats.modes[game.mode][userId]) stats.modes[game.mode][userId] = { wins: 0, games: 0, points: 0, maxWPM: 0 };
+
         stats.modes[game.mode][userId].games++;
-        stats.modes[game.mode][userId].points += score;
-        if (index === 0 && score > 0) stats.modes[game.mode][userId].wins++;
+        stats.modes[game.mode][userId].points += points;
+
+        const currentModeMax = stats.modes[game.mode][userId].maxWPM || 0;
+        if (maxWPM > currentModeMax) {
+            stats.modes[game.mode][userId].maxWPM = maxWPM;
+        }
+
+        if (index === 0 && points > 0) stats.modes[game.mode][userId].wins++;
     });
 
     // Salvar stats
