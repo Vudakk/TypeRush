@@ -1,6 +1,6 @@
 # 🏎️ TypeRush
 
-![Logo](https://i.imgur.com/2p655e9.png)
+![Logo](https://i.imgur.com/OMQIjjJ.png)
 
 **TypeRush** é um bot de corrida de digitação para Discord, desenvolvido para testar sua velocidade e precisão contra amigos ou outros membros do servidor!
 
