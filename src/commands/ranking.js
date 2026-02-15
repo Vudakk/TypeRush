@@ -15,6 +15,13 @@ module.exports = {
                     { name: '🔢 Números', value: 'numbers' },
                     { name: '➗ Matemática', value: 'math' },
                     { name: '💬 Frases', value: 'sentences' }
+                ))
+        .addStringOption(option =>
+            option.setName('ordenar')
+                .setDescription('Critério de classificação')
+                .addChoices(
+                    { name: '🏆 Vitórias (Padrão)', value: 'wins' },
+                    { name: '⚡ Velocidade (WPM)', value: 'wpm' }
                 )),
     async execute(interaction) {
         const mode = interaction.options.getString('modo') || 'global';

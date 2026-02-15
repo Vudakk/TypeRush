@@ -152,7 +152,7 @@ module.exports = {
                 await i.update({ content: '🚀 **A corrida vai começar!**', components: [] });
                 collector.stop('started');
                 game.status = 'ingame';
-                game.players.forEach(pid => game.scores[pid] = 0);
+                game.players.forEach(pid => game.scores[pid] = { points: 0, maxWPM: 0 });
                 startRound(gameId);
             }
         });
@@ -256,10 +256,20 @@ async function startRound(channelId) {
             if (m.content === expectedAnswer) {
                 roundWon = true;
                 const timeTaken = (Date.now() - roundStartTime) / 1000;
-                game.scores[m.author.id]++;
+                
+                // Calcular WPM (Palavras por Minuto)
+                // Padrão internacional: 5 caracteres = 1 palavra
+                const chars = expectedAnswer.length;
+                const minutes = timeTaken / 60;
+                const wpm = minutes > 0 ? Math.round((chars / 5) / minutes) : 0;
+
+                game.scores[m.author.id].points++;
+                if (wpm > game.scores[m.author.id].maxWPM) {
+                    game.scores[m.author.id].maxWPM = wpm;
+                }
 
                 const winEmbed = new EmbedBuilder()
-                    .setDescription(`✅ **${m.author}** acertou! (+1 ponto)\nResposta: **${expectedAnswer}**\n⏱️ Tempo: ${timeTaken.toFixed(2)}s`)
+                    .setDescription(`✅ **${m.author}** acertou! (+1 ponto)\nResposta: **${expectedAnswer}**\n⏱️ Tempo: ${timeTaken.toFixed(2)}s | ⚡ **${wpm} WPM**`)
                     .setColor('#00FF00');
 
                 await channel.send({ embeds: [winEmbed] });
